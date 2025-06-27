@@ -1,0 +1,565 @@
+<!--
+    Offline Expense Tracker
+    Copyright (c) 2025 [Nav Singh]
+
+    This software is licensed under the MIT License.
+    See https://opensource.org/licenses/MIT for details.
+
+    Source code available at: https://github.com/mrnavsingh/offlineexpensetracker/
+-->
+<!DOCTYPE html>
+<!-- Version 5 -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Expense Tracker</title>
+	<link rel="stylesheet" href="styles.css">
+    <!-- Add Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<!-- Google tag (gtag.js) -->
+	<script async src="https://www.googletagmanager.com/gtag/js?id=G-468Y9BMDZH"></script>
+	<script>
+	  window.dataLayer = window.dataLayer || [];
+	  function gtag(){dataLayer.push(arguments);}
+	  gtag('js', new Date());
+
+	  gtag('config', 'G-468Y9BMDZH');
+	</script></head>
+<body>
+    <div class="container">
+        <h1>Offline Expense Tracker 💰</h1>
+
+        <!-- Main Tabs -->
+		<div class="main-tabs">
+			<button class="main-tab active" onclick="showMainTab('expenses')">Expenses</button>
+			<button class="main-tab" onclick="showMainTab('stats')">Stats</button>
+			<button class="main-tab" onclick="showMainTab('settings')">Settings</button>
+		</div>
+
+		<!-- Reminder Notifications -->
+		<div id="reminderNotification" style="display: none; position: fixed; top: 20px; right: 20px; background: #3498db; color: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1001; max-width: 300px; animation: slideIn 0.3s ease-out;">
+			<div style="display: flex; align-items: center; gap: 10px;">
+				<span id="reminderIcon" style="font-size: 24px;">⏰</span>
+				<div style="flex: 1;">
+					<div id="reminderTitle" style="font-weight: bold; margin-bottom: 5px;">Reminder</div>
+					<div id="reminderMessage" style="font-size: 14px;"></div>
+				</div>
+				<button onclick="dismissReminder()" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0; margin: 0;">&times;</button>
+			</div>
+		</div>
+
+        <!-- Expenses Tab Content -->
+        <div id="expenses-tab" class="main-tab-content active">
+            <!-- Add Expense Form -->
+            <div class="card">
+                <div class="card-header">Add New Expense</div>
+                <form id="expenseForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="date">Date</label>
+                            <input type="date" id="date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="description">Description</label>
+                            <input type="text" id="description" placeholder="Enter description" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="category">Category</label>
+                            <select id="category" required>
+                                <option value="">Select category</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="amount">Amount ($)</label>
+                            <input type="number" id="amount" step="0.01" min="0.01" placeholder="0.00" required>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                        <button type="submit">Add Expense</button>
+                        <button type="button" class="secondary" onclick="showCategoryModal()">Manage Categories</button>
+                    </div>
+                </form>
+            </div>
+			
+
+            <!-- Filter Section -->
+            <div class="card">
+                <div class="card-header">Filter Options</div>
+                <div class="filter-buttons">
+                    <button onclick="quickFilter('today')">Today</button>
+                    <button onclick="quickFilter('week')">This Week</button>
+                    <button onclick="quickFilter('month')">This Month</button>
+                    <button onclick="quickFilter('all')">All Time</button>
+                </div>
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label for="fromDate">From Date</label>
+                        <input type="date" id="fromDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="toDate">To Date</label>
+                        <input type="date" id="toDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="filterCategory">Category</label>
+                        <select id="filterCategory">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <button onclick="applyFilters()">Apply Filters</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expense List -->
+            <div class="card">
+                <div class="card-header">Expense List</div>
+                <table id="expenseTable">
+                    <thead>
+                        <tr>
+                            <th class="checkbox-col"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                            <th onclick="sortExpenses('date')">Date ↕</th>
+                            <th onclick="sortExpenses('description')">Description ↕</th>
+                            <th onclick="sortExpenses('category')">Category ↕</th>
+                            <th onclick="sortExpenses('amount')">Amount ↕</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenseBody">
+                        <!-- Expenses will be populated here -->
+                    </tbody>
+                </table>
+                <div class="total" id="totalAmount">Total: $0.00</div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <div>
+                    <button class="danger" onclick="deleteSelected()">Delete Selected</button>
+                    <button class="secondary" onclick="clearAllData()">Clear All Data</button>
+                </div>
+                <div>
+                    <button class="success" onclick="exportToCSV()">Export to CSV</button>
+                    <button class="success" onclick="exportToJSON()">Export to JSON</button>
+                    <button class="secondary" onclick="document.getElementById('fileInput').click()">Import Data</button>
+                    <input type="file" id="fileInput" accept=".csv,.json" onchange="importData(event)">
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Tab Content -->
+        <div id="stats-tab" class="main-tab-content">
+            <!-- Statistics -->
+            <div class="card">
+                <div class="card-header">Statistics</div>
+                <div class="stats-grid" id="statsGrid">
+                    <!-- Stats will be populated here -->
+                </div>
+            </div>
+
+            <!-- Visualizations -->
+            <div class="card">
+                <div class="card-header">Expense Visualizations</div>
+                <div class="chart-tabs">
+                    <button class="chart-tab active" onclick="showChartTab('overview')">Overview</button>
+                    <button class="chart-tab" onclick="showChartTab('trends')">Trends</button>
+                    <button class="chart-tab" onclick="showChartTab('comparison')">Comparison</button>
+                </div>
+
+                <div id="overview-charts" class="chart-content active">
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <canvas id="categoryPieChart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="categoryBarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="trends-charts" class="chart-content">
+                    <div class="chart-container" style="height: 400px;">
+                        <canvas id="monthlyTrendChart"></canvas>
+                    </div>
+                    <div class="charts-grid" style="margin-top: 20px;">
+                        <div class="chart-container">
+                            <canvas id="dailyTrendChart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="categoryTrendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="comparison-charts" class="chart-content">
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <canvas id="monthComparisonChart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="topExpensesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+		
+		<!-- Settings Tab Content -->
+		<div id="settings-tab" class="main-tab-content">
+			<!-- Reminder Settings -->
+			<div class="card">
+				<div class="card-header">Reminder Settings</div>
+
+				<!-- Expense Reminders -->
+				<div style="margin-bottom: 30px;">
+					<h3 style="color: #34495e; margin-bottom: 15px;">Expense Reminders</h3>
+
+					<div class="form-group">
+						<label style="display: flex; align-items: center; gap: 10px;">
+							<input type="checkbox" id="expenseRemindersEnabled" onchange="saveReminderSettings()">
+							<span>Enable expense reminders</span>
+						</label>
+					</div>
+
+					<div id="expenseReminderOptions" style="margin-left: 20px; margin-top: 15px;">
+						<div class="form-group">
+							<label>Reminder Interval (hours)</label>
+							<input type="number" id="reminderInterval" min="1" max="24" value="3" onchange="saveReminderSettings()">
+						</div>
+
+						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+							<div class="form-group">
+								<label>Start Time</label>
+								<input type="time" id="reminderStartTime" value="08:00" onchange="saveReminderSettings()">
+							</div>
+							<div class="form-group">
+								<label>End Time</label>
+								<input type="time" id="reminderEndTime" value="20:00" onchange="saveReminderSettings()">
+							</div>
+						</div>
+
+						<div class="form-group">
+							<label>Active Days</label>
+							<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+								<label><input type="checkbox" name="reminderDays" value="0" checked onchange="saveReminderSettings()"> Sun</label>
+								<label><input type="checkbox" name="reminderDays" value="1" checked onchange="saveReminderSettings()"> Mon</label>
+								<label><input type="checkbox" name="reminderDays" value="2" checked onchange="saveReminderSettings()"> Tue</label>
+								<label><input type="checkbox" name="reminderDays" value="3" checked onchange="saveReminderSettings()"> Wed</label>
+								<label><input type="checkbox" name="reminderDays" value="4" checked onchange="saveReminderSettings()"> Thu</label>
+								<label><input type="checkbox" name="reminderDays" value="5" checked onchange="saveReminderSettings()"> Fri</label>
+								<label><input type="checkbox" name="reminderDays" value="6" checked onchange="saveReminderSettings()"> Sat</label>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Backup Reminders -->
+				<div style="border-top: 1px solid #ecf0f1; padding-top: 20px;">
+					<h3 style="color: #34495e; margin-bottom: 15px;">Backup Reminders</h3>
+
+					<div class="form-group">
+						<label style="display: flex; align-items: center; gap: 10px;">
+							<input type="checkbox" id="backupRemindersEnabled" onchange="saveReminderSettings()">
+							<span>Enable backup reminders</span>
+						</label>
+					</div>
+
+					<div id="backupReminderOptions" style="margin-left: 20px; margin-top: 15px;">
+						<div class="form-group">
+							<label>Reminder Time</label>
+							<input type="time" id="backupReminderTime" value="19:00" onchange="saveReminderSettings()">
+						</div>
+
+						<div class="form-group">
+							<label>Frequency</label>
+							<select id="backupFrequency" onchange="updateBackupFrequencyOptions()">
+								<option value="daily">Every Day</option>
+								<option value="weekly">Once a Week</option>
+								<option value="monthly">Once a Month</option>
+							</select>
+						</div>
+
+						<div id="weeklyBackupOptions" style="display: none;" class="form-group">
+							<label>Day of Week</label>
+							<select id="backupWeekday" onchange="saveReminderSettings()">
+								<option value="0">Sunday</option>
+								<option value="1">Monday</option>
+								<option value="2">Tuesday</option>
+								<option value="3">Wednesday</option>
+								<option value="4">Thursday</option>
+								<option value="5">Friday</option>
+								<option value="6">Saturday</option>
+							</select>
+						</div>
+
+						<div id="monthlyBackupOptions" style="display: none;" class="form-group">
+							<label>Day of Month</label>
+							<select id="backupMonthday" onchange="saveReminderSettings()">
+								<!-- Generate options 1-28 -->
+								<script>
+									for (let i = 1; i <= 28; i++) {
+										document.write('<option value="' + i + '">' + i + '</option>');
+									}
+								</script>
+								<option value="last">Last day of month</option>
+							</select>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Sound Settings -->
+			<div class="card">
+				<div class="card-header">Sound Settings</div>
+				<div class="form-group">
+					<label style="display: flex; align-items: center; gap: 10px;">
+						<input type="checkbox" id="soundEnabled" checked onchange="saveReminderSettings()">
+						<span>Enable sound notifications</span>
+					</label>
+				</div>
+				<div class="form-group">
+					<label>Volume</label>
+					<input type="range" id="soundVolume" min="0" max="100" value="50" onchange="saveReminderSettings()">
+					<span id="volumeDisplay">50%</span>
+				</div>
+			</div>
+		</div>
+		
+		
+    </div>
+
+    <!-- Category Management Modal -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeCategoryModal()">&times;</span>
+            <h2>Manage Categories</h2>
+            <div class="form-group">
+                <label for="newCategory">Add New Category</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="newCategory" placeholder="Enter category name">
+                    <button onclick="addCategory()">Add</button>
+                </div>
+            </div>
+            <div class="category-list" id="categoryList">
+                <!-- Categories will be populated here -->
+            </div>
+        </div>
+    </div>
+	
+	<!-- Page Content -->
+	<div class="article-wrapper">
+	<h1>Offline Expense Tracker: Your Private, Secure Budget Management Solution</h1>
+	<p>In an era where financial data breaches and privacy concerns dominate headlines, finding a <strong>truly private expense tracking app</strong> has become increasingly challenging. Enter the <strong>Offline Expense Tracker</strong> - a revolutionary <strong>open source expense tracker</strong> that keeps your sensitive financial information exactly where it belongs: with you, and only you.</p>
+
+	<h2>Complete Privacy: Your Data Never Leaves Your Device</h2>
+	<p>Unlike traditional expense tracking apps that store your financial data on remote servers, the <strong>Offline Expense Tracker</strong> operates entirely within your web browser. This <strong>privacy-first expense manager</strong> features <strong>transparent, client-side code</strong> with no hidden server-side processing. Using local storage technology, your expense records, budget categories, and financial patterns remain exclusively on your device. No cloud servers, no data harvesting, no privacy concerns - just pure, secure expense tracking with <strong>fully inspectable source code</strong>.</p>
+
+	<h3>How Does Zero-Server Storage Work?</h3>
+	<p>The app leverages modern browser technology called localStorage, which allows it to save your data directly on your computer or mobile device. This <strong>client-side expense tracker</strong> approach with <strong>source code available for review and modification</strong> means:</p>
+	<ul>
+	<li><strong>No account creation required</strong> - start tracking immediately</li>
+	<li><strong>No internet connection needed</strong> after initial load</li>
+	<li><strong>No risk of server breaches</strong> exposing your financial data</li>
+	<li><strong>No subscription fees</strong> or hidden costs - truly <strong>open source expense management</strong></li>
+	<li><strong>Complete control</strong> over your financial information</li>
+	<li><strong>Transparent implementation</strong> - all code is visible and modifiable</li>
+	</ul>
+
+	<h2>Open Source Transparency</h2>
+	<p>As an <strong>open source budget tracker</strong>, every line of code is accessible for review, ensuring complete transparency in how your data is handled. The <strong>client-side only implementation</strong> means there's <strong>no hidden server-side processing</strong> - what you see is exactly what you get. This <strong>transparent financial tracking</strong> approach allows security-conscious users and developers to verify the app's privacy claims independently.</p>
+
+	<h2>Effortless Data Export: Your Information, Your Way</h2>
+	<p>One of the standout features of this <strong>local expense tracking tool</strong> is its flexible data export capabilities. Understanding that your financial data should be portable and accessible, this <strong>open source solution</strong> offers multiple export options:</p>
+
+	<h3>Export to JSON Format</h3>
+	<p>Perfect for developers and tech-savvy users, the JSON export feature allows you to:</p>
+	<ul>
+	<li>Create comprehensive backups of all expenses and settings</li>
+	<li>Transfer data between devices manually</li>
+	<li>Integrate with other financial tools</li>
+	<li>Maintain version-controlled financial records</li>
+	<li>Examine your data structure with <strong>complete transparency</strong></li>
+	</ul>
+
+	<h3>Export to CSV (Excel-Compatible)</h3>
+	<p>For those who prefer spreadsheet analysis, the CSV export function enables:</p>
+	<ul>
+	<li>Direct import into Excel, Google Sheets, or LibreOffice</li>
+	<li>Custom financial analysis and reporting</li>
+	<li>Easy sharing with accountants or financial advisors</li>
+	<li>Creation of personalized financial dashboards</li>
+	</ul>
+
+	<h2>Powerful Features Without Compromising Privacy</h2>
+	<p>This <strong>secure budget tracker</strong> with <strong>inspectable source code</strong> doesn't sacrifice functionality for privacy. Users enjoy a comprehensive suite of features, all implemented with <strong>transparent client-side code</strong>:</p>
+
+	<h3>Intelligent Expense Categorization</h3>
+	<ul>
+	<li>Customizable expense categories</li>
+	<li>Smart category management with edit and delete options</li>
+	<li>Visual spending breakdowns by category</li>
+	<li>Category-based filtering and analysis</li>
+	<li>All logic visible in the <strong>open source codebase</strong></li>
+	</ul>
+
+	<h3>Advanced Data Visualization</h3>
+	<p>The <strong>private expense analytics</strong> dashboard, built with <strong>transparent JavaScript</strong>, includes:</p>
+	<ul>
+	<li>Real-time pie charts showing expense distribution</li>
+	<li>Monthly and daily spending trends</li>
+	<li>Category comparison charts</li>
+	<li>Top expense identification</li>
+	<li>Month-over-month spending analysis</li>
+	<li>All charts rendered locally with <strong>no server-side processing</strong></li>
+	</ul>
+
+	<h3>Smart Reminder System</h3>
+	<p>Stay on top of your finances with customizable reminders:</p>
+	<ul>
+	<li>Automated expense entry reminders (configurable intervals)</li>
+	<li>Daily backup reminders to protect your data</li>
+	<li>Flexible scheduling options by day and time</li>
+	<li>Silent operation respecting your privacy</li>
+	<li><strong>Client-side only</strong> reminder logic</li>
+	</ul>
+
+	<h3>Inline Editing Capabilities</h3>
+	<p>Managing expenses is seamless with <strong>transparent, modifiable code</strong> that provides:</p>
+	<ul>
+	<li>Click-to-edit functionality for all expense fields</li>
+	<li>Real-time updates without page refreshes</li>
+	<li>Bulk selection and deletion options</li>
+	<li>Intuitive keyboard shortcuts</li>
+	<li>All features implemented in <strong>reviewable JavaScript</strong></li>
+	</ul>
+
+	<h2>Why Choose an Open Source Offline Expense Tracker?</h2>
+
+	<h3>1. <strong>Absolute Privacy Protection</strong></h3>
+	<p>Your financial data is nobody's business but yours. This <strong>anonymous expense tracker</strong> with <strong>fully transparent source code</strong> ensures your spending habits, income patterns, and financial goals remain completely private.</p>
+
+	<h3>2. <strong>No Internet Dependencies</strong></h3>
+	<p>Track expenses anywhere, anytime - even without internet connectivity. Perfect for:</p>
+	<ul>
+	<li>International travelers avoiding roaming charges</li>
+	<li>Remote workers in areas with limited connectivity</li>
+	<li>Privacy-conscious individuals limiting online footprints</li>
+	<li>Developers who want to <strong>review and modify the source code</strong></li>
+	</ul>
+
+	<h3>3. <strong>Zero Subscription Costs</strong></h3>
+	<p>Unlike cloud-based alternatives charging monthly fees, this <strong>free offline budget app</strong> provides full functionality without recurring costs. As an <strong>open source project</strong>, it's free forever.</p>
+
+	<h3>4. <strong>Instant Setup</strong></h3>
+	<p>No lengthy registration processes or email verifications. Simply open the app and start tracking - it's that simple. The <strong>transparent implementation</strong> shows exactly how simple the setup really is.</p>
+
+	<h3>5. <strong>Data Portability and Code Transparency</strong></h3>
+	<p>Your financial data isn't locked into a proprietary system. Export, backup, and move your information freely between devices and platforms. Plus, with <strong>source code available for review</strong>, you can verify exactly how your data is handled.</p>
+
+	<h2>Security Through Simplicity and Transparency</h2>
+	<p>The <strong>Offline Expense Tracker</strong> embraces a "security through simplicity" philosophy combined with <strong>open source transparency</strong>. By eliminating servers, databases, and network communications, it removes entire categories of security vulnerabilities:</p>
+	<ul>
+	<li><strong>No password breaches</strong> - no passwords to steal</li>
+	<li><strong>No man-in-the-middle attacks</strong> - no data transmission</li>
+	<li><strong>No SQL injection risks</strong> - no database queries</li>
+	<li><strong>No API vulnerabilities</strong> - no external connections</li>
+	<li><strong>Fully auditable code</strong> - verify security claims yourself</li>
+	</ul>
+
+	<h2>Perfect for Privacy-Conscious Users and Developers</h2>
+	<p>This <strong>confidential expense management</strong> solution with <strong>inspectable source code</strong> is ideal for:</p>
+
+	<h3>Freelancers and Contractors</h3>
+	<p>Track business expenses without exposing client information or project details to third-party services. <strong>Review the code</strong> to ensure your data stays private.</p>
+
+	<h3>Small Business Owners</h3>
+	<p>Maintain financial records securely without the complexity and cost of enterprise solutions. The <strong>open source nature</strong> means you can customize it for your needs.</p>
+
+	<h3>Privacy Advocates</h3>
+	<p>Enjoy modern expense tracking features without compromising personal privacy principles. <strong>Transparent, client-side code</strong> ensures no hidden data collection.</p>
+
+	<h3>Developers and Technical Users</h3>
+	<p>Fork, modify, and enhance the <strong>open source codebase</strong> to create custom expense tracking solutions. All code is <strong>available for review and modification</strong>.</p>
+
+	<h3>International Travelers</h3>
+	<p>Manage travel expenses across borders without worrying about data sovereignty or international data transfer regulations.</p>
+
+	<h2>Getting Started is Effortless</h2>
+	<ol>
+	<li><strong>Access the App</strong>: Simply navigate to the Offline Expense Tracker in your web browser</li>
+	<li><strong>Start Tracking</strong>: Add your first expense immediately - no setup required</li>
+	<li><strong>Customize Categories</strong>: Tailor expense categories to match your lifestyle</li>
+	<li><strong>Set Reminders</strong>: Configure automated reminders to maintain consistent tracking</li>
+	<li><strong>Export Regularly</strong>: Backup your data using JSON or CSV exports</li>
+	<li><strong>Review the Code</strong>: Examine the <strong>transparent source code</strong> to understand exactly how it works</li>
+	</ol>
+
+	<h2>Advanced Features for Power Users</h2>
+
+	<h3>Comprehensive Filtering Options</h3>
+	<ul>
+	<li>Date range filters for detailed period analysis</li>
+	<li>Category-specific expense views</li>
+	<li>Quick filters for daily, weekly, and monthly summaries</li>
+	<li>Custom filter combinations for complex queries</li>
+	<li>All filtering logic <strong>visible in the source code</strong></li>
+	</ul>
+
+	<h3>Statistical Insights</h3>
+	<p>The <strong>private budget analytics</strong> engine, implemented entirely in <strong>client-side JavaScript</strong>, provides:</p>
+	<ul>
+	<li>Total expense calculations</li>
+	<li>Average expense analysis</li>
+	<li>Category spending rankings</li>
+	<li>Monthly spending comparisons</li>
+	<li>Highest spending category identification</li>
+	<li><strong>No server-side processing</strong> for any calculations</li>
+	</ul>
+
+	<h3>Bulk Operations</h3>
+	<p>Efficiently manage large numbers of transactions with <strong>transparent, modifiable code</strong>:</p>
+	<ul>
+	<li>Select all functionality</li>
+	<li>Bulk delete operations</li>
+	<li>Category reassignment for multiple expenses</li>
+	<li>Mass export capabilities</li>
+	</ul>
+
+	<h2>Data Backup Best Practices</h2>
+	<p>While the <strong>Offline Expense Tracker</strong> stores data securely on your device using <strong>transparent localStorage implementation</strong>, regular backups ensure your financial records are protected against:</p>
+	<ul>
+	<li>Device failures or replacement</li>
+	<li>Accidental browser data clearing</li>
+	<li>Operating system reinstalls</li>
+	</ul>
+	<p>The app's reminder system can alert you to perform regular backups, maintaining data security without compromising privacy. The <strong>open source code</strong> shows exactly how reminders work.</p>
+
+	<h2>Open Source Community</h2>
+	<p>As an <strong>open source expense tracker</strong>, this project welcomes contributions from developers worldwide. The <strong>fully transparent codebase</strong> allows for:</p>
+	<ul>
+	<li>Security audits by independent developers</li>
+	<li>Feature contributions from the community</li>
+	<li>Bug fixes and improvements</li>
+	<li>Customization for specific use cases</li>
+	<li>Learning opportunities for new developers</li>
+	</ul>
+
+	<h2>Conclusion: Financial Privacy Through Open Source Transparency</h2>
+	<p>The <strong>Offline Expense Tracker</strong> represents a paradigm shift in personal finance management. By combining powerful expense tracking features with uncompromising privacy protection and <strong>open source transparency</strong>, it delivers what modern users demand: a <strong>secure, private, and user-friendly expense management solution</strong> with <strong>fully inspectable source code</strong>.</p>
+	<p>Whether you're a privacy advocate, a small business owner, a developer, or simply someone who believes financial data should remain personal, this <strong>client-side budget tracker</strong> with <strong>transparent implementation</strong> provides the perfect balance of functionality, security, and openness. With no servers to hack, no accounts to breach, no data to harvest, and <strong>source code available for review</strong>, your financial information stays exactly where it should - under your complete control.</p>
+	<p>Start your journey toward private, secure expense tracking today. Because in a world of data breaches and privacy invasions, the best place for your financial data is offline, encrypted, and in your hands alone - with <strong>transparent, open source code</strong> you can trust.</p>
+	<p>Take control of your financial privacy. Try the <strong>Open Source Offline Expense Tracker</strong> today - no registration, no downloads, just pure, private expense management with <strong>code you can review and modify</strong>.</p>
+	</div>
+	
+	<!-- Add this right before the closing </body> tag -->
+	<audio id="reminderSound" preload="auto">
+		<source src="https://www.soundjay.com/misc/bell-ringing-05.wav" type="audio/wav">
+		<!-- Fallback beep sound using data URI -->
+		<source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSxy0Oy9diMFl2z7blpfdTiR1/LNeSsFJHXH8N+RQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFl0z7blpfdTiR1/LNeSsFJHXH8N+RQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFl0z7blpfdTiR1/LNeSsFJHXH8N+RQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFlxz7blpfdTiR1/LNeSsFJHXH8N+RQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFlwz7blpfdTiR1/LNeSsFJHXH8N+RQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFlwz7blpfdTiR1/LNeSsFJHXH8N+RQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFlwz7blpfdTiR1/LNeSsFJHXH8N+RQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFlwz7blpfdTiR1/LNeSsFJHXH8N+RQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFlwz7blpfdTiR1/LNeSsFJHXH8N+RQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFlwz7blpfdTiR1/LNeSsFJHXH8N+RQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFlwz7blpfdTiR1/LNeSsFJHXH8N+RQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFlwz7blpfdTiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFl5z7blpfdTiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFl5z7blpfdTiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmwhBSxy0Oy9diMFl5z7blpfd15JnaKDVxEJTqnn3nlQCBUCse6Bfj8RZG2nh0UJFhCA4vuLjTQKFk+z9IhuLAUoU7Lr3aJUGAlDmsS3r2ceGGDE5/2+jDMJIT2Y8LGaYhUMOJHj86VvGwU7k8T0um4wBDOW4PWsbR0FLojY6byETAk1aK+1moEiC06p0+6vVRkJasLtz6lgJwYrp5Tu3HIvCRx2ru/eVhoLVZnR5b1uIAZMR8b+hmM2CSdJe/Tmo2QdHEOi6syfYCgGNbCz9bGCNwsvjZ72yH8vCRlzrO3gWxoLWJPP58VwHwc6U6LoyIQ3DTJvneLDglwcFk+u3+mzWCAKPJHO6LdjKgcaxa3T3olTDBRVr+zuWBwLdXiV5MOBNwg9csblp2IvF1mSx+65XSgKSJHI6cJfMgI=" type="audio/wav">
+	</audio>
+
+<script src="script.js"></script>
+</body>
+</html>
